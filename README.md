@@ -1,8 +1,8 @@
 # TabFPA: Tabular Feasibility-Preserving Attack
 
-TabFPA studies feasibility-preserving adversarial attacks on heterogeneous tabular data. This release contains only the following TabFPA experiments under an L2 perturbation budget.
+This repository provides the implementation, experiment configurations and execution instructions for **TabFPA (Tabular Feasibility-Preserving Attack)** on heterogeneous tabular data.
 
-**Status: Under Preparation.** The scoped method code and experiment entries are available. Full experiment validation and reproduction documentation are still being finalized.
+It includes L2 attack experiments against default and Madry targets on URL, WiDS, CTU and LCLD; the WiDS-mapping and Malware scenarios; and training utilities for additional XGBoost and LightGBM targets.
 
 ## Released experiments
 
@@ -18,7 +18,7 @@ TabFPA studies feasibility-preserving adversarial attacks on heterogeneous tabul
 | WiDS-mapping | default | `run_wids_mapping.sh` |
 | Malware | default | `run_full_wreinit.sh` |
 
-The repository contains the scoped TabFPA attack entries and training code for two additional tree targets (XGBoost and LightGBM), described below. Historical tuning, ablation and baseline-comparison drivers and precomputed result tables are not included. TabularBench is an external dependency. Its source code, baseline attacks, training scripts, datasets and model weights are not included in this repository.
+TabularBench is an external dependency providing dataset definitions, pretrained neural targets and evaluation components. Obtain its source, datasets and checkpoints from the upstream project using the instructions below. This repository contains the TabFPA-specific code and the additional tree-target training utilities.
 
 ## Environment and assets
 
@@ -112,7 +112,7 @@ The source settings are retained, including LightGBM's default `subsample_freq=0
 
 Local outputs are written to `runs/tree_targets/<dataset>/seed<seed>/<unweighted-or-balanced>/`: `xgb.json`, `lgbm.txt` and `manifest.json`. The manifest records actual estimator parameters, versions, feature order, data and split hashes, best iterations and test metrics. Saved models are reloaded to check test-prediction equality. `load_targets(directory)` and `predict_one(model, X)` in the training module provide loading and binary-prediction helpers; preserve the recorded feature order and input representation.
 
-The optional dependencies are pinned to versions recorded in the source experiments. This entry provides target training and loading; transfer-attack evaluation is not included in this addition. Generated models, datasets and result files remain local and are not distributed in this repository.
+This section covers target training and model loading. The optional dependencies are pinned to versions recorded in the source experiments. Generated models, datasets and result files remain local and are not distributed in this repository.
 
 ## Protocol and outputs
 
