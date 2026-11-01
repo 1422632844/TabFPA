@@ -33,3 +33,9 @@ cache/
 *.pickle
 *.joblib
 *.model/
+
+# Native tree-target model exports, even with a custom output directory.
+xgb.json
+lgbm.txt
+**/seed[0-9]*/unweighted/
+**/seed[0-9]*/balanced/

@@ -18,7 +18,7 @@ TabFPA studies feasibility-preserving adversarial attacks on heterogeneous tabul
 | WiDS-mapping | default | `run_wids_mapping.sh` |
 | Malware | default | `run_full_wreinit.sh` |
 
-There are no historical tuning, ablation, baseline-comparison or victim-training experiment drivers, and no precomputed result tables. TabularBench is an external dependency. Its source code, baseline attacks, training scripts, datasets and model weights are not included in this repository.
+The repository contains the scoped TabFPA attack entries and training code for two additional tree targets (XGBoost and LightGBM), described below. Historical tuning, ablation and baseline-comparison drivers and precomputed result tables are not included. TabularBench is an external dependency. Its source code, baseline attacks, training scripts, datasets and model weights are not included in this repository.
 
 ## Environment and assets
 
@@ -83,6 +83,37 @@ bash run_wids_mapping.sh
 
 The frozen diagnosis-to-body-system mapping is included in `method/config/wids_apache3j_intervals.json`. This is constraint configuration, not a dataset or a result table.
 
+## Additional tree-target training
+
+`targets/train_tree_targets.py` trains **XGBoost and LightGBM** as additional non-differentiable targets for transfer evaluation. It uses the existing external TabularBench datasets; the neural target checkpoints above are not needed for this training step. Dataset splits follow TabularBench: fit on `train`, use `val` for early stopping, and report clean accuracy and ROC AUC on `test`. The training seed defaults to 0 and both models use eight CPU threads.
+
+After preparing the base environment and dataset paths above:
+
+```bash
+pip install -r targets/requirements.txt
+# Train both tree targets on one dataset.
+bash run_tree_targets.sh --dataset url
+# The source training code also provides an optional class-weighted setting.
+bash run_tree_targets.sh --dataset url --class-weight
+```
+
+Dataset choices are `url`, `wids`, `ctu_13_neris`, `lcld_v2_iid` and `malware`. Repeat the command for the desired datasets. `PYTHON=/path/to/python` selects the interpreter; this entry trains on CPU and does not require a GPU. `--out /absolute/path/to/output` changes the output root. An existing run directory is never overwritten.
+
+| Setting | XGBoost | LightGBM |
+|---|---|---|
+| Maximum boosting rounds | 4000 | 2000 |
+| Learning rate | 0.05 | 0.05 |
+| Tree configuration | depth 8, histogram method | 64 leaves, row-wise |
+| Subsample / column fraction parameters | 0.8 / 0.8 | 0.8 / 0.8 |
+| Early-stopping patience | 100 | 100 |
+| Optional `--class-weight` | training negatives / positives | `balanced` |
+
+The source settings are retained, including LightGBM's default `subsample_freq=0` (its row-subsample parameter is therefore inactive). Raw features are converted to float32, with categorical codes kept as individual columns. Malware is read in chunks into a sparse CSR matrix. This entry does not fit a min-max scaler or one-hot encoder.
+
+Local outputs are written to `runs/tree_targets/<dataset>/seed<seed>/<unweighted-or-balanced>/`: `xgb.json`, `lgbm.txt` and `manifest.json`. The manifest records actual estimator parameters, versions, feature order, data and split hashes, best iterations and test metrics. Saved models are reloaded to check test-prediction equality. `load_targets(directory)` and `predict_one(model, X)` in the training module provide loading and binary-prediction helpers; preserve the recorded feature order and input representation.
+
+The optional dependencies are pinned to versions recorded in the source experiments. This entry provides target training and loading; transfer-attack evaluation is not included in this addition. Generated models, datasets and result files remain local and are not distributed in this repository.
+
 ## Protocol and outputs
 
 - The L2 radius is 0.5 in min-max transformed coordinates; WiDS-mapping uses 0.6. Search uses 200 steps and batches of 128. Per-batch seeds are `seed * 1000003 + offset`.
@@ -113,6 +144,7 @@ Per seed, `S` is the certified successful-attack count, `N` the clean-correct at
 - `method/lcld_*`, `method/wids_mapping_*`: LCLD and mapping-specific components.
 - `method/models/`: TabFPA victim-model adapters.
 - `method/benchmark_adapter.py`: connection to the external benchmark and local asset paths.
+- `targets/train_tree_targets.py`: training and loading the two additional tree targets.
 
 The LCLD kernel is checked against `EXPECTED_KERNEL` in `method/lcld_config.py`. Its pinned hash reflects the released source file, including import paths. Generated outputs are ignored by Git.
 
