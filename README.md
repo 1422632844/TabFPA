@@ -34,11 +34,12 @@ mapping relation).
 
 ## Environment
 
-- Python 3.8–3.10, PyTorch 1.11/1.12 (CUDA or CPU), plus the dependencies in
-  `tabularbench/requirements.txt` (numpy < 1.24, pandas, scikit-learn, scipy,
-  tables/h5py, pytorch-tabnet, einops, lifelines, ...).
+- Python 3.8–3.10 with PyTorch 1.11/1.12 and **a CUDA GPU** — the main entries
+  load victim models on CUDA (a CUDA device is required; CPU-only execution is
+  not supported by the experiment entries).
 - Install the Python dependencies into your environment, e.g.
-  `pip install -r tabularbench/requirements.txt`.
+  `pip install -r requirements.txt` (this includes the vendored benchmark's
+  pinned dependencies plus `huggingface_hub` for the dataset fallback).
 - Every launcher accepts `PYTHON=/path/to/python` and `GPU=<cuda index>`
   environment overrides and writes outputs under `./runs/` (relative to the
   repository root).
@@ -91,11 +92,17 @@ bash run_official.sh --dataset wids
 ```bash
 # URL (frozen profile url_madry_k30_lr70_tau05, all five models in one call)
 bash run_official.sh --dataset url --models tabtransformer_madry torchrln_madry vime_madry stg_madry tabnet_madry
-# WiDS / CTU (standard w_reinit schedule)
-bash run_full_wreinit.sh --dataset wids --model tabtransformer_madry        # × 5 models
-bash run_full_wreinit.sh --dataset ctu_13_neris --model tabtransformer_madry# × 5 models
-# LCLD (996 configuration on the official draw)
-bash run_lcld_996.sh run --model tabtransformer_madry                       # × 4 models
+
+# WiDS (standard w_reinit schedule) — repeat for each of the five *_madry models
+bash run_full_wreinit.sh --dataset wids --model tabtransformer_madry
+
+# CTU (standard w_reinit schedule) — repeat for each of the five *_madry models
+bash run_full_wreinit.sh --dataset ctu_13_neris --model tabtransformer_madry
+
+# LCLD (996 configuration on the official draw; the pools step above already
+# builds the Madry pools) — four Madry models; tabnet_madry has an empty
+# clean-correct pool and is pool-only
+bash run_lcld_996.sh run --model tabtransformer_madry
 ```
 
 ### 3. Additional scenario: Malware (L2)

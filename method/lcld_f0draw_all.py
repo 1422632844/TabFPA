@@ -29,8 +29,14 @@ from tabularbench.models.tab_scaler import TabScaler  # noqa: E402
 from tabularbench.utils.datatypes import to_torch_number  # noqa: E402
 
 DS, N = "lcld_v2_iid", 1000
+# Default models, then the Madry models used by the adversarially-trained
+# scenario. tabnet_madry draws an empty clean-correct subset (the official
+# Madry checkpoint classifies no drawn row as positive); its pool is still
+# built and kept for provenance.
 MODELS = ["torchrln_default", "stg_default", "vime_default",
-          "tabnet_default", "tabtransformer_default"]
+          "tabnet_default", "tabtransformer_default",
+          "torchrln_madry", "stg_madry", "vime_madry",
+          "tabnet_madry", "tabtransformer_madry"]
 OUT = ROOT / "reference/caa_pools"
 OUT.mkdir(parents=True, exist_ok=True)
 

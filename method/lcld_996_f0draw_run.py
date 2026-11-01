@@ -7,7 +7,9 @@ Config = the frozen 996 route: FIXED + ARMS['d06_l12'] from lcld_tune100
 (ballv2 + se/dir gates + chain BPDA, logits_lr=.12, d_lr=.06, 100+100).
 Kernel hash pinned via lcld_tune100.EXPECTED_KERNEL. One model per invocation,
 five seeds, resumable (existing json+npz verified and skipped).
-Output: runs/lcld996_f0draw_20260930/."""
+Supports the five default and the four Madry models (tabnet_madry has an empty
+clean-correct pool and is pool-only). Outputs: runs/lcld996_f0draw_20260930/
+(default) and runs/lcld996_f0draw_madry/ (Madry)."""
 import os, sys, json, hashlib, gc
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,9 +29,19 @@ from tabularbench.constraints.constraints_checker import ConstraintChecker
 import run_experiments as rx
 
 ARM = 'd06_l12'
-MODELS = ["torchrln_default", "stg_default", "vime_default",
-          "tabnet_default", "tabtransformer_default"]
-OUT = ROOT / 'runs/lcld996_f0draw_20260930'
+DEFAULT_MODELS = ["torchrln_default", "stg_default", "vime_default",
+                  "tabnet_default", "tabtransformer_default"]
+# tabnet_madry is excluded from this attack entry: the official Madry checkpoint
+# classifies no drawn row as positive, so its clean-correct pool is empty and
+# the forward-accounting assertions cannot run. The pool itself is still built
+# by lcld_f0draw_all.py for provenance.
+MADRY_MODELS = ["torchrln_madry", "stg_madry", "vime_madry", "tabtransformer_madry"]
+MODELS = DEFAULT_MODELS + MADRY_MODELS
+
+
+def out_root(model):
+    return ROOT / ('runs/lcld996_f0draw_madry' if model.endswith('_madry')
+                   else 'runs/lcld996_f0draw_20260930')
 wk = t.wk
 CONFIG = {**t.FIXED, **t.ARMS[ARM]}
 
@@ -39,7 +51,7 @@ def pool_path(model):
 
 
 def run_one(model, seed, meta, scaler, cons, cpu, adapter, judge):
-    dest = OUT / f'{model}_seed{seed}_{ARM}'
+    dest = out_root(model) / f'{model}_seed{seed}_{ARM}'
     kernel_hash = hashlib.sha256(Path(wk.__file__).read_bytes()).hexdigest()
     assert kernel_hash == t.EXPECTED_KERNEL, kernel_hash
     pp = pool_path(model)
@@ -88,7 +100,7 @@ def verify(model, seeds, meta, scaler, cons, cpu, judge):
     strict = ConstraintChecker(cons, tolerance=1e-12)
     rows = []
     for seed in seeds:
-        z = np.load((OUT / f'{model}_seed{seed}_{ARM}').with_suffix('.npz'))
+        z = np.load((out_root(model) / f'{model}_seed{seed}_{ARM}').with_suffix('.npz'))
         adv = z['adv']
         actual, dist, _, _ = judge(pool, np.ones(len(pool), dtype=int), adv)
         actual &= np.asarray(strict.check_constraints(pool, adv), bool)
@@ -104,7 +116,7 @@ def verify(model, seeds, meta, scaler, cons, cpu, judge):
                          fwd_max=int(z['fwd'].max())))
     result = dict(model=model, arm=ARM, verified=True, rows=rows,
                   mean_S=sum(r['S'] for r in rows) / len(rows))
-    (OUT / f'verification_{model}_{ARM}.json').write_text(json.dumps(result, indent=2))
+    (out_root(model) / f'verification_{model}_{ARM}.json').write_text(json.dumps(result, indent=2))
     print('VERIFIED', json.dumps(result), flush=True)
     return result
 
@@ -114,12 +126,13 @@ def main():
     ap.add_argument("--model", required=True, choices=MODELS)
     a = ap.parse_args()
     torch.set_num_threads(2); torch.set_num_interop_threads(1)
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = out_root(a.model)
+    out.mkdir(parents=True, exist_ok=True)
     plan = dict(arm=ARM, config=CONFIG, kernel_sha256=t.EXPECTED_KERNEL,
                 sampling='f0draw_cc (official filter_correct=False draw, then clean-correct subset)',
                 supersedes='runs/lcld_tune100_validation_20260929 (wrong sampling order)',
                 seeds=list(range(5)))
-    (OUT / 'plan.json').write_text(json.dumps(plan, indent=2))
+    (out / 'plan.json').write_text(json.dumps(plan, indent=2))
     xall, _, meta, scaler, cons = rx.dataset_data('lcld_v2_iid')
     cpu, adapter, _ = rx.victims('lcld_v2_iid', a.model, meta, scaler, cons, xall[:32])
     judge = BatchJudge(cpu, cons, scaler, .5, box_tol_scale=1, rel_tol=1e-7)

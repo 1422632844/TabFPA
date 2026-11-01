@@ -84,7 +84,7 @@ def main():
         with db:
             db.execute("UPDATE scenes SET state='complete' WHERE key=?", (key,))
         n_done = db.execute("SELECT COALESCE(SUM(json_extract(metrics,'$.accepted')),0) FROM batches WHERE scene=?", (key,)).fetchone()[0]
-        emit("scene_complete", scene=key, S=n_done, N=total, D=den, RA=(total - n_done) / den)
+        emit("scene_complete", scene=key, S=n_done, N=total, D=den, RA=round(100.0 * (total - n_done) / den, 2))
     emit("complete", dataset="ctu_13_neris", model=a.model)
 
 
