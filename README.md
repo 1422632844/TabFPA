@@ -35,7 +35,7 @@ mapping relation).
 
 ## Environment
 
-- Python 3.8–3.10 with PyTorch 1.11/1.12 and **a CUDA GPU** — the main entries
+- Linux, Python 3.8–3.10 with PyTorch 1.11/1.12 and **a CUDA GPU** — the main entries
   load victim models on CUDA (a CUDA device is required; CPU-only execution is
   not supported by the experiment entries).
 - Install the Python dependencies into your environment, e.g.
@@ -68,8 +68,8 @@ trained) checkpoints. The wrappers embed their input transforms: always feed
 ## Running the experiments
 
 All entries default to seeds 0–4, batch 128, 200 search steps, and a hard cap of
-256 forward evaluations per sample (the WiDS default entry uses a 200-query
-cap); per-batch seeds are `seed*1000003 + offset`. Pools are the legal
+256 forward evaluations per sample (`run_official.sh` uses a 200-query
+cap for both WiDS default and URL Madry); per-batch seeds are `seed*1000003 + offset`. Pools are the legal
 constraint-valid class-1 test rows, filtered to per-model clean-correct
 predictions, original order — except LCLD, which attacks the clean-correct
 subset of the official stratified 1000-row draw (`random_state=42`).
@@ -120,11 +120,15 @@ bash run_wids_mapping.sh        # all five default models, seeds 0–4
 
 ### Outputs
 
-All `RA`/`ASR` values written by the entries are **percentages (0–100)**.
+The `RA` fields in the main experiment summaries are **percentages (0–100)**.
+Batch-level `asr` fields are **fractions (0–1)**; multiply by 100 when reporting
+percentages. The legacy `run_experiments.py` CSV fields `asr`, `robust_acc`,
+and `conditional_robust_acc` also use fractions (0–1).
 
 - `run_full_wreinit.sh` / `run_ctu_dlr03.sh`: `runs/<dataset>_full_wreinit/<model>/`
   and `runs/ctu_dlr03_full/<model>/` — `manifest.json`, `status.json`, resumable
-  `state.sqlite3` (per-seed scene rows `S/N/D/RA`; adversarial batches as BLOBs).
+  `state.sqlite3` (scene progress and per-batch metrics, with adversarial batches
+  stored as BLOBs). Per-seed `S/N/D/RA` summaries are emitted to standard output.
 - `run_official.sh`: `runs/official_<dataset>_<profile>_q200/<model>/` — per-seed
   results plus `complete.json` with the frozen parameters.
 - `run_lcld_996.sh`: pools under `reference/caa_pools/`; default-target results
@@ -135,7 +139,8 @@ All `RA`/`ASR` values written by the entries are **percentages (0–100)**.
 
 Metrics: per seed, `S` = certified constraint-valid misclassifications among the
 `N` attacked (clean-correct, legal) rows out of the `D` eligible pool rows;
-RA = (N − S)/D and ASR = S/N. Report five-seed mean ± SD.
+In fraction form, RA = (N − S)/D and ASR = S/N (when N > 0).
+For percentage reporting, multiply these ratios by 100. Report five-seed mean ± SD.
 
 ## Protocol notes
 
