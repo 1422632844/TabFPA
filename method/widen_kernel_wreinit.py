@@ -6,11 +6,13 @@ Each integer-move direction exposes 8 magnitude slots (|step| ascending):
 Tiers: T0={0,4} (+-1), T1+= {1,5} (10%), T2+= {2,6} (50%), T3+= {3,7} (full).
 At each unlock round the newly available slots get theta reset to the neutral
 value (0., i.e. the kappa=0 init) so they earn a fair exploration phase --
-passive unmasking alone repeats E04's failed mid-run switch. No restarts,
+the slots are activated without adding steps to the run. No restarts,
 no extra steps, no extra budget: same 200 steps, same 256-forward cap."""
 import numpy as np
 import torch,time,resource
-from scripts.feasible_gumbel_ablation import AttackLogits,JointIntegerMoves,old,ctu,ConstraintChecker
+from runtime import AttackLogits, Meter, CtuCompletion, completion_for
+from core.feasible_integer_moves import JointIntegerMoves
+from tabularbench.constraints.constraints_checker import ConstraintChecker
 
 SLOT_TIERS=[np.array([0,4]),np.array([1,5]),np.array([2,6]),np.array([3,7])]
 
@@ -32,10 +34,10 @@ def run(dataset,model_name,meta,scaler,cons,model,adapter,judge,x,seed,frozen=Fa
     optimizer=torch.optim.Adam(params)
     y=np.ones(n,dtype=np.int64)
     scoring=adapter if probability else AttackLogits(adapter,model_name)
-    meter=old.base.Meter(scoring,model,judge,x,y,'cuda',256,128)
+    meter=Meter(scoring,model,judge,x,y,'cuda',256,128)
     certification_calls=np.zeros(n,dtype=np.int64)
     optimization_visits=np.zeros(n,dtype=np.int64)
-    completion=completion_ctor(dataset,meta,scaler,judge) if completion_ctor else (ctu.CtuCompletion(dataset,meta,scaler,judge,.495) if dataset=='ctu_13_neris' else old.completion_for(dataset,meta,scaler,judge))
+    completion=completion_ctor(dataset,meta,scaler,judge) if completion_ctor else (CtuCompletion(dataset,meta,scaler,judge,.495) if dataset=='ctu_13_neris' else completion_for(dataset,meta,scaler,judge))
     A=np.concatenate([moves.L,moves.E],axis=0)
     bias=np.concatenate([moves.lb,moves.eb])
     TA=torch.tensor(A,dtype=torch.float32,device='cuda')

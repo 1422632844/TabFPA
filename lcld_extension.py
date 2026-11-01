@@ -75,20 +75,3 @@ class LcldCompletion(ConditionalCompletion):
         if len(other):
             out[other], valid[other] = super()._lcld(x0[other], p[other])
         return out, valid
-
-
-def run(*args, **kwargs):
-    # Process-local dependency binding: no source modification, no worker
-    # concurrency, and no change to the running URL/WiDS/CTU implementation.
-    from scripts import feasible_gumbel_ablation as released
-    original_moves = released.JointIntegerMoves
-    original_completion = released.old.completion_for
-    released.JointIntegerMoves = LcldMoves
-    released.old.completion_for = lambda dataset, meta, scaler, judge: LcldCompletion(dataset, meta, scaler, judge)
-    try:
-        meter, row = released.run(*args, **kwargs)
-        row["dataset_extension"] = "LCLD_derived_ratio_witness_local_SLSQP"
-        return meter, row
-    finally:
-        released.JointIntegerMoves = original_moves
-        released.old.completion_for = original_completion

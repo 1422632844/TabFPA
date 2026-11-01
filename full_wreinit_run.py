@@ -1,31 +1,30 @@
-"""Full-pool w_reinit run (official pools/protocol, new universal config).
+"""TabFPA full-pool runs for URL default, WiDS/CTU Madry and Malware default.
 
-Pools, batching (128), per-batch seeding (seed*1000003+offset) mirror
-full_lr_run.py in the default deployment; the only change is the kernel:
-fixed kappa-40 init + in-run kappa-0 reinit at round 100 (widen_kernel).
-One model per invocation, own output dir runs/<ds>_full_wreinit/<model>/."""
+Uses batches of 128, per-batch seed = seed*1000003+offset, and a fixed
+200-step schedule with reinitialization at round 100. One target per run."""
 import os, sys, io, gc, json, time, sqlite3, fcntl, argparse
 from pathlib import Path
 import numpy as np
 import torch
 ROOT = Path(__file__).resolve().parent
-os.environ.setdefault("TABULARBENCH_ROOT", str(ROOT / "tabularbench"))
-os.environ.setdefault("TABULARBENCH_DATASET_DIR", str(ROOT / "tabularbench/datasets"))
-os.environ.setdefault("TABULARBENCH_TARGET_MODEL_DIR", str(ROOT / "tabularbench/target_model"))
-sys.path[:0] = [str(ROOT / "method"), str(ROOT / "tabularbench"), str(ROOT)]
-import run_experiments as common
-import lcld_extension, malware_extension
+sys.path[:0] = [str(ROOT / "method"), str(ROOT)]
+import experiment_common as common
+import malware_extension
 import widen_kernel_wreinit as widen_kernel
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--dataset", required=True, choices=["url", "wids", "ctu_13_neris", "lcld_v2_iid", "malware"])
+    p.add_argument("--dataset", required=True, choices=["url", "wids", "ctu_13_neris", "malware"])
     p.add_argument("--model", required=True)
     p.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2, 3, 4])
-    p.add_argument("--n", type=int, default=0, help=">0: only attack the first n clean-correct rows (LCLD estimate convention)")
+    p.add_argument("--n", type=int, default=0, help=">0: limit clean-correct rows for a smoke check (not a full-pool result)")
     p.add_argument("--batch", type=int, default=128)
     p.add_argument("--reinit-round", type=int, default=100)
     a = p.parse_args()
+    regime = "madry" if a.dataset in ("wids", "ctu_13_neris") else "default"
+    models = [f"{arch}_{regime}" for arch in ("tabnet", "tabtransformer", "torchrln", "vime", "stg")]
+    if a.model not in models:
+        p.error(f"This entry requires a {regime} target for {a.dataset}; see README for other schedules.")
     torch.set_num_threads(2); torch.set_num_interop_threads(1)
     out = Path(os.environ.get("WREINIT_OUT_ROOT", str(ROOT))) / f"runs/{a.dataset}_full_wreinit" / a.model
     out.mkdir(parents=True, exist_ok=True)
@@ -66,9 +65,7 @@ def main():
         emit("complete", dataset=a.dataset, model=a.model)
         return
     kw = {}
-    if a.dataset == "lcld_v2_iid":
-        kw = dict(moves_cls=lcld_extension.LcldMoves, completion_ctor=lcld_extension.LcldCompletion)
-    elif a.dataset == "malware":
+    if a.dataset == "malware":
         kw = dict(moves_cls=malware_extension.MalwareMoves, completion_ctor=malware_extension.MalwareCompletion)
     emit("pool", dataset=a.dataset, model=a.model, valid_class1=den, clean_correct=total)
     for seed in a.seeds:

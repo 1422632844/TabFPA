@@ -6,20 +6,19 @@ Each integer-move direction exposes 8 magnitude slots (|step| ascending):
 Tiers: T0={0,4} (+-1), T1+= {1,5} (10%), T2+= {2,6} (50%), T3+= {3,7} (full).
 At each unlock round the newly available slots get theta reset to the neutral
 value (0., i.e. the kappa=0 init) so they earn a fair exploration phase --
-passive unmasking alone repeats E04's failed mid-run switch. No restarts,
+the slots are activated without adding steps to the run. No restarts,
 no extra steps, no extra budget: same 200 steps, same 256-forward cap."""
 import numpy as np
 import torch,time,resource
-from scripts.feasible_gumbel_ablation import AttackLogits,JointIntegerMoves,old,ctu,ConstraintChecker
+from runtime import AttackLogits, Meter, CtuCompletion, completion_for
+from core.feasible_integer_moves import JointIntegerMoves
+from tabularbench.constraints.constraints_checker import ConstraintChecker
 
 TRACE=__import__('os').environ.get('WK_TRACE')=='1'
 SLOT_TIERS=[np.array([0,4]),np.array([1,5]),np.array([2,6]),np.array([3,7])]
 
 def run(dataset,model_name,meta,scaler,cons,model,adapter,judge,x,seed,frozen=False,steps=200,probability=False,state_policy="released",logits_lr=.48, kappa=40., moves_cls=None, completion_ctor=None, progress=None, tier_rounds=None, tau_sawtooth=True, reinit_round=None, reinit_kappa=0., kappa_anneal=None, l0_cap_frac=None, cont_param='plain', rho_scale=1., ball_hinge=False, ball_sched=None, reinit_dir=False, dir_gate=None, se_gate=None, d_lr=.06, hinge_w=4., hinge_th=.45, rel_w=0.):
-    # rel_w: weight of the relation (constraint-surrogate) term. DEFAULT 0
-    # since 2026-09-28 (ablation: inert on LCLD, -5 rows on CTU-base; see
-    # docs/PARAM_TUNING_TWO_NEGCELLS_20260928.md). rel_w=4. restores the
-    # original official loss exactly.
+    # rel_w weights the relation surrogate; the released configuration uses 0.
     # cont_param: continuous reparameterization for the real-valued block.
     #   'plain'    unbounded d + box clamp + budget hinge (official baseline)
     #   'ball'     v1 stereographic ball map dz=r_t*2u/(1+|u|^2), hinge off
@@ -47,10 +46,10 @@ def run(dataset,model_name,meta,scaler,cons,model,adapter,judge,x,seed,frozen=Fa
     optimizer=torch.optim.Adam(params)
     y=np.ones(n,dtype=np.int64)
     scoring=adapter if probability else AttackLogits(adapter,model_name)
-    meter=old.base.Meter(scoring,model,judge,x,y,'cuda',256,128)
+    meter=Meter(scoring,model,judge,x,y,'cuda',256,128)
     certification_calls=np.zeros(n,dtype=np.int64)
     optimization_visits=np.zeros(n,dtype=np.int64)
-    completion=completion_ctor(dataset,meta,scaler,judge) if completion_ctor else (ctu.CtuCompletion(dataset,meta,scaler,judge,.495) if dataset=='ctu_13_neris' else old.completion_for(dataset,meta,scaler,judge))
+    completion=completion_ctor(dataset,meta,scaler,judge) if completion_ctor else (CtuCompletion(dataset,meta,scaler,judge,.495) if dataset=='ctu_13_neris' else completion_for(dataset,meta,scaler,judge))
     A=np.concatenate([moves.L,moves.E],axis=0)
     bias=np.concatenate([moves.lb,moves.eb])
     TA=torch.tensor(A,dtype=torch.float32,device='cuda')

@@ -1,9 +1,6 @@
 #!/bin/bash
-# w_reinit full-pool runner: standard L2 on URL (default weights), Madry targets on
-# URL/WiDS/CTU, and the Malware scenario. One model per invocation.
+# TabFPA full-pool entry: URL default, WiDS/CTU Madry, Malware default.
 # Usage: bash run_full_wreinit.sh --dataset url --model tabnet_default
-#        bash run_full_wreinit.sh --dataset url --model tabnet_madry
-#        bash run_full_wreinit.sh --dataset malware --model tabnet_default
 set -euo pipefail
 R="$(cd -- "$(dirname -- "$0")" && pwd)"
 PY="${PYTHON:-python}"

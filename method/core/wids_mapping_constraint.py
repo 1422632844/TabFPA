@@ -9,7 +9,7 @@ grammar changes needed by any consumer):
                          Or_{(lo,hi) in runs_k} And(lo - W <= d, d <= hi + W) )
 
 - runs_k: the contiguous code runs of body system k in the observed data
-  (reference/wids_apache3j_intervals.json; cross-system interleaving at
+  (config/wids_apache3j_intervals.json; cross-system interleaving at
   <=0.02 granularity is 0, verified during extraction).
 - W = 1e-4 raw units: absorbs float32 round-trip noise on two-decimal codes
   (ulp <= 2.4e-6 at 2201) while being 200x smaller than the smallest gap
@@ -35,7 +35,7 @@ from tabularbench.constraints.relation_constraint import (
 )
 
 REF_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "reference", "wids_apache3j_intervals.json")
+                        "config", "wids_apache3j_intervals.json")
 DIAG = "apache_3j_diagnosis"
 SYSTEM = "apache_3j_bodysystem"
 WIDEN = 1e-4          # f32-noise margin on interval endpoints

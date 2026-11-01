@@ -1,170 +1,121 @@
 # TabFPA: Tabular Feasibility-Preserving Attack
 
-TabFPA is a feasibility-preserving adversarial attack for heterogeneous tabular
-data. It compiles the declared domain constraints (immutable fields, integer
-domains, linear/nonlinear relations, derived features) into the *shape* of the
-action space itself, so that every candidate proposed to the victim model is a
-complete, constraint-valid point by construction: joint discrete moves are
-sampled through ST-Gumbel estimators, continuous displacements are repaired by
-dataset-specific conditional completions, and gradients are bridged back to the
-raw inputs with BPDA. A greedy ratchet keeps the best certified flip under a
-strict query budget.
+TabFPA studies feasibility-preserving adversarial attacks on heterogeneous tabular data. This release contains only the following TabFPA experiments under an L2 perturbation budget.
 
-This repository contains the implementation and the reproduction entries for the
-main experiments of the paper: attacks on standard (default) and
-adversarially-trained (Madry) targets under an L2 budget, plus two additional
-constraint scenarios (Malware, and WiDS with an added diagnosis–body-system
-mapping relation).
+**Status: Under Preparation.** The scoped method code and experiment entries are available. Full experiment validation and reproduction documentation are still being finalized.
 
-## Repository layout
+## Released experiments
 
-| Path | Contents |
-|---|---|
-| `method/core/` | Constraint compilation (`feasible_integer_moves`), conditional completion base, joint-move scoring/judging, WiDS completions and the added mapping relation |
-| `method/scripts/` | The released joint discrete–continuous search loop (`feasible_gumbel_ablation`) and its dataset loaders/utilities |
-| `method/tabdatasets/` | Per-dataset feasible maps (URL, WiDS, LCLD, Malware, CTU) |
-| `method/models/` | Victim-model adapters (raw-feature interface, transforms built in) |
-| `method/widen_kernel_*.py` | Search schedules: `w_reinit` (main), `query200`, `temperature_params` (Madry URL), `ballmap_dir` (kernel superset used by the CTU entry) |
-| `method/official_defaults.{py,json}` | Frozen per-scenario parameter profiles |
-| `method/lcld_*` | LCLD frozen 996 configuration and official-draw pool builder |
-| `method/wids_mapping_*.py` | WiDS mapping-constrained scenario |
-| `full_wreinit_run.py`, `ctu_dlr03_run.py`, `run_official.py` | Experiment entry points (see below) |
-| `run_experiments.py` | Shared dataset/victim loaders imported by the entries above; also a legacy learning-rate sweep / audit entry (`--mode audit/smoke/full`), not one of the paper-table experiments |
-| `run_*.sh` | Launchers (relative paths only; `PYTHON` and `GPU` overridable) |
-| `tabularbench/` | Vendored [TabularBench](https://github.com/serval-uni-lu/tabularbench) package (model wrappers, constraint checkers, dataset factory) |
+| Dataset or scenario | Checkpoints | Entry |
+|---|---|---|
+| URL | default | `run_full_wreinit.sh` |
+| URL | Madry | `run_official.sh` |
+| WiDS | default | `run_official.sh` |
+| WiDS | Madry | `run_full_wreinit.sh` |
+| CTU (`ctu_13_neris`) | default | `run_ctu_dlr03.sh` |
+| CTU (`ctu_13_neris`) | Madry | `run_full_wreinit.sh` |
+| LCLD (`lcld_v2_iid`) | default and Madry | `run_lcld_996.sh` |
+| WiDS-mapping | default | `run_wids_mapping.sh` |
+| Malware | default | `run_full_wreinit.sh` |
 
-## Environment
+There are no historical tuning, ablation, baseline-comparison or victim-training experiment drivers, and no precomputed result tables. TabularBench is an external dependency. Its source code, baseline attacks, training scripts, datasets and model weights are not included in this repository.
 
-- Linux, Python 3.8–3.10 with PyTorch 1.11/1.12 and **a CUDA GPU** — the main entries
-  load victim models on CUDA (a CUDA device is required; CPU-only execution is
-  not supported by the experiment entries).
-- Install the Python dependencies into your environment, e.g.
-  `pip install -r requirements.txt` (this includes the vendored benchmark's
-  pinned dependencies plus `huggingface_hub` for the dataset fallback).
-- Every launcher accepts `PYTHON=/path/to/python` and `GPU=<cuda index>`
-  environment overrides and writes outputs under `./runs/` (relative to the
-  repository root).
+## Environment and assets
 
-## Datasets and target models
+- Linux, Python 3.8–3.10, PyTorch 1.11/1.12 and a CUDA GPU. The main entries require CUDA. The Malware entry loads the full HDF5 table and needs sufficient host memory for multiple DataFrame and tensor copies.
+- Obtain the external source, datasets and pretrained targets from the official [TabularBench repository](https://github.com/serval-uni-lu/tabularbench#data-availability). Follow its data-availability instructions for the download locations and directory structure. TabFPA does not redistribute or retrain these targets.
+- The external API is checked against TabularBench commit `bfb75415a6a31a41ddfeef34478eea1da227d19c`. Keep this checkout outside TabFPA, for example as a sibling directory:
 
-The attack runs against the public TabularBench assets (Simonetto, Ghamizi,
-Cordy; arXiv:2408.07579, also used by the CAA attack paper arXiv:2406.00775).
+```bash
+# Run from the TabFPA repository root, in a compatible Python environment.
+git clone https://github.com/serval-uni-lu/tabularbench.git ../tabularbench
+git -C ../tabularbench checkout bfb75415a6a31a41ddfeef34478eea1da227d19c
+export TABULARBENCH_ROOT="$(cd ../tabularbench && pwd)"
+pip install -r "$TABULARBENCH_ROOT/requirements.txt"
+pip install -r requirements.txt
+# Set these to the assets obtained following the upstream instructions.
+export TABULARBENCH_DATASET_DIR=/absolute/path/to/datasets
+export TABULARBENCH_TARGET_MODEL_DIR=/absolute/path/to/target_model
+```
 
-1. Obtain the datasets and the pretrained target-model checkpoints from the
-   official [TabularBench release](https://github.com/serval-uni-lu/tabularbench).
-2. Place them as (or symlink to):
-   - `tabularbench/datasets/` (dataset files), and
-   - `tabularbench/target_model/` (checkpoints, e.g.
-     `target_model/url/tabnet_url_default.model`, `..._madry.model`).
-   
-   Alternatively point `TABULARBENCH_DATASET_DIR` / `TABULARBENCH_TARGET_MODEL_DIR`
-   at existing locations.
+Expected examples are `$TABULARBENCH_DATASET_DIR/wids/wids.csv`, `wids/wids_metadata.csv`, and `$TABULARBENCH_TARGET_MODEL_DIR/url/tabnet_url_default.model/`. Dataset subdirectories are `url`, `wids`, `ctu_13_neris`, `lcld_v2` and `malware`; the LCLD checkpoint subdirectory is `lcld_v2_iid`. The path adapter uses upstream dataset definitions, splits, constraints, scalers and model classes without modifying the external checkout.
 
-Victim models are the five TabularBench architectures — TabTransformer, RLN,
-VIME, STG, TabNet — with `_default` (standard) and `_madry` (adversarially
-trained) checkpoints. The wrappers embed their input transforms: always feed
-**raw** features.
+- Run commands from the repository root. Launchers accept `PYTHON=/path/to/python` and `GPU=<cuda index>`. They run offline, so all requested datasets and checkpoints must be available locally beforehand.
 
-## Running the experiments
+Target architectures are `tabtransformer`, `torchrln`, `vime`, `stg` and `tabnet`; append `_default` or `_madry`. Model wrappers include their transforms and consume raw features. Repeat single-model examples for the applicable architectures. Default seeds are 0–4.
 
-All entries default to seeds 0–4, batch 128, 200 search steps, and a hard cap of
-256 forward evaluations per sample (`run_official.sh` uses a 200-query
-cap for both WiDS default and URL Madry); per-batch seeds are `seed*1000003 + offset`. Pools are the legal
-constraint-valid class-1 test rows, filtered to per-model clean-correct
-predictions, original order — except LCLD, which attacks the clean-correct
-subset of the official stratified 1000-row draw (`random_state=42`).
-
-### 1. Standard targets under L2 (default checkpoints)
+## Default targets
 
 ```bash
 # URL
-bash run_full_wreinit.sh --dataset url --model tabnet_default     # × 5 models
-# CTU (per-cell d_lr=0.03 tuning)
-bash run_ctu_dlr03.sh --model tabnet_default                      # × 5 models
-# LCLD (frozen 996 configuration: build the draw pools once, then one model per run)
-bash run_lcld_996.sh pools
-bash run_lcld_996.sh run --model tabnet_default                   # × 5 models
-# WiDS (frozen profile wids_d09_h32_lr36)
+bash run_full_wreinit.sh --dataset url --model tabnet_default
+# CTU
+bash run_ctu_dlr03.sh --model tabnet_default
+# WiDS: all five default targets
 bash run_official.sh --dataset wids
+# LCLD: prepare default and Madry pools, then run one target
+bash run_lcld_996.sh pools
+bash run_lcld_996.sh run --model tabnet_default
 ```
 
-### 2. Adversarially trained targets (Madry checkpoints, L2)
+## Madry targets
 
 ```bash
-# URL (frozen profile url_madry_k30_lr70_tau05, all five models in one call)
+# URL: all five Madry targets
 bash run_official.sh --dataset url --models tabtransformer_madry torchrln_madry vime_madry stg_madry tabnet_madry
-
-# WiDS (standard w_reinit schedule) — repeat for each of the five *_madry models
+# WiDS and CTU: repeat for the five Madry targets
 bash run_full_wreinit.sh --dataset wids --model tabtransformer_madry
-
-# CTU (standard w_reinit schedule) — repeat for each of the five *_madry models
 bash run_full_wreinit.sh --dataset ctu_13_neris --model tabtransformer_madry
-
-# LCLD (996 configuration on the official draw; the pools step above already
-# builds the Madry pools) — four Madry models; tabnet_madry has an empty
-# clean-correct pool and is pool-only
+# LCLD: use pools prepared above
 bash run_lcld_996.sh run --model tabtransformer_madry
 ```
 
-### 3. Additional scenario: Malware (L2)
+The LCLD attack entry supports `tabtransformer_madry`, `torchrln_madry`, `vime_madry` and `stg_madry`. For the original released checkpoint, LCLD `tabnet_madry` has an empty clean-correct draw: the pool builder includes it for provenance, but the attack entry excludes it.
+
+## Additional scenarios
 
 ```bash
-bash run_full_wreinit.sh --dataset malware --model tabnet_default # × 5 models
+# Malware: repeat for the five default targets
+bash run_full_wreinit.sh --dataset malware --model tabnet_default
+# WiDS-mapping: all five default targets, L2 radius 0.6
+bash run_wids_mapping.sh
 ```
 
-### 4. Additional scenario: WiDS with added mapping relation (L2, radius 0.6)
+The frozen diagnosis-to-body-system mapping is included in `method/config/wids_apache3j_intervals.json`. This is constraint configuration, not a dataset or a result table.
 
-```bash
-bash run_wids_mapping.sh        # all five default models, seeds 0–4
-```
+## Protocol and outputs
 
-### Outputs
+- The L2 radius is 0.5 in min-max transformed coordinates; WiDS-mapping uses 0.6. Search uses 200 steps and batches of 128. Per-batch seeds are `seed * 1000003 + offset`.
+- The attack-query cap is 256 per sample, except `run_official.sh`, which uses 200 for WiDS default and URL Madry. Initial clean evaluations and final offline audits are excluded from the attack-query count.
+- Pools use constraint-valid class-1 test rows, then retain per-model clean-correct predictions in original order. LCLD uses the clean-correct subset of the official stratified 1000-row draw (`random_state=42`).
+- The LCLD entry fixes `WK_AUDIT_TOL=1e-12` for the final equality audit. Frozen parameters are in `method/lcld_config.py` and `method/official_defaults.json`; no parameter search is performed.
 
-The `RA` fields in the main experiment summaries are **percentages (0–100)**.
-Batch-level `asr` fields are **fractions (0–1)**; multiply by 100 when reporting
-percentages. The legacy `run_experiments.py` CSV fields `asr`, `robust_acc`,
-and `conditional_robust_acc` also use fractions (0–1).
+| Entry | Output location |
+|---|---|
+| `run_full_wreinit.sh` | `runs/<dataset>_full_wreinit/<model>/` |
+| `run_ctu_dlr03.sh` | `runs/ctu_dlr03_full/<model>/` |
+| `run_official.sh` | `runs/official_<dataset>_<profile>_q200/<model>/` |
+| `run_lcld_996.sh pools` | `reference/caa_pools/` |
+| `run_lcld_996.sh run` | `runs/lcld996_f0draw_20260930/` or `runs/lcld996_f0draw_madry/` |
+| `run_wids_mapping.sh` | `runs/wids_mapping_full_wreinit_eps06/<model>/` |
 
-- `run_full_wreinit.sh` / `run_ctu_dlr03.sh`: `runs/<dataset>_full_wreinit/<model>/`
-  and `runs/ctu_dlr03_full/<model>/` — `manifest.json`, `status.json`, resumable
-  `state.sqlite3` (scene progress and per-batch metrics, with adversarial batches
-  stored as BLOBs). Per-seed `S/N/D/RA` summaries are emitted to standard output.
-- `run_official.sh`: `runs/official_<dataset>_<profile>_q200/<model>/` — per-seed
-  results plus `complete.json` with the frozen parameters.
-- `run_lcld_996.sh`: pools under `reference/caa_pools/`; default-target results
-  under `runs/lcld996_f0draw_20260930/`, Madry-target results under
-  `runs/lcld996_f0draw_madry/` (JSON + per-seed NPZ).
-- `run_wids_mapping.sh`: `runs/wids_mapping_full_wreinit_eps06/<model>/`
-  (`results.json` rows with `S`, `N`, `D`, `RA`).
+Full-pool and CTU entries store progress and adversarial batches in `state.sqlite3`, plus `manifest.json` and `status.json`; per-seed summaries are printed to standard output. Official entries write per-seed JSON/NPZ and `complete.json`. LCLD writes per-seed JSON/NPZ and verification summaries. WiDS-mapping writes adversarial NPZ batches and `results.json`.
 
-Metrics: per seed, `S` = certified constraint-valid misclassifications among the
-`N` attacked (clean-correct, legal) rows out of the `D` eligible pool rows;
-In fraction form, RA = (N − S)/D and ASR = S/N (when N > 0).
-For percentage reporting, multiply these ratios by 100. Report five-seed mean ± SD.
+Per seed, `S` is the certified successful-attack count, `N` the clean-correct attack-pool size and `D` the eligible pool size before correctness filtering. RA = (N − S)/D and ASR = S/N (when N > 0). Summary `RA` fields use percentages (0–100); batch-level `asr` fields use fractions (0–1). Multiply ratios by 100 when reporting percentages, and report five-seed mean ± SD.
 
-## Protocol notes
+## Code layout
 
-- The L2 radius is 0.5 in the min-max transformed space (0.6 for the WiDS
-  mapping scenario; internal completion radius 0.495).
-- The LCLD entry sets `WK_AUDIT_TOL=1e-12` internally (final audit tolerance for
-  the float64 recomputation of the derived-equality columns); do not override.
-- Victims are evaluated in eval mode with the official pretrained weights; no
-  retraining is performed.
-- Query accounting: every accepted candidate passes a counted float64
-  certification forward pass; a free screen (misclassified ∧ within budget)
-  does not consume the query budget.
+- Root `*_run.py` / `run_official.py` and `run_*.sh`: experiment entries.
+- `experiment_common.py`: shared dataset and victim-model loading.
+- `method/runtime.py`: logits extraction, query accounting and completion helpers.
+- `method/core/`: joint integer moves, completion, constraints and final checking.
+- `method/widen_kernel_*.py`, `method/lcld_schedule_kernel.py`: frozen search schedules.
+- `method/lcld_*`, `method/wids_mapping_*`: LCLD and mapping-specific components.
+- `method/models/`: TabFPA victim-model adapters.
+- `method/benchmark_adapter.py`: connection to the external benchmark and local asset paths.
 
-## Provenance
+The LCLD kernel is checked against `EXPECTED_KERNEL` in `method/lcld_config.py`. Its pinned hash reflects the released source file, including import paths. Generated outputs are ignored by Git.
 
-Code is frozen from the research codebase at paper-submission state; only the
-main-experiment entries are included (ablation and diagnostic harnesses are not
-part of this release). The LCLD tuning module pins the kernel hash
-(`EXPECTED_KERNEL` in `method/lcld_tune100.py`) and verifies
-`method/lcld_schedule_kernel.py` byte-identity at run time.
+## Acknowledgment and license status
 
-## License
-
-`tabularbench/` is the vendored upstream TabularBench package under its MIT
-license (`tabularbench/LICENSE`, © 2024 Thibault Simonetto, Salah Ghamizi,
-Maxime Cordy). The TabFPA code in this repository is released for
-reproducibility of the paper.
+Experiments use the datasets, target models and evaluation components of [TabularBench](https://github.com/serval-uni-lu/tabularbench), by Thibault Simonetto, Salah Ghamizi and Maxime Cordy. Please follow the upstream citation and asset-use instructions. TabFPA currently has no assigned top-level license.

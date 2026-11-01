@@ -21,8 +21,7 @@
         "hinge_w": 32.0,
         "logits_lr": 0.36
       },
-      "evidence": "runs/wids_fixed_multiseed_20261021/summary.json",
-      "scope": "Native WiDS, five default checkpoints, seeds 0-4. Mapping constraints and Madry checkpoints are separate scenarios."
+      "scope": "Native WiDS default targets, seeds 0-4."
     },
     "url/madry": {
       "id": "url_madry_k30_lr70_tau05",
@@ -45,8 +44,7 @@
         "tau_start": 1.0,
         "tau_end": 0.5
       },
-      "evidence": "runs/url_madry_temperature_params_20261023/rbalance00_validation_summary.json",
-      "scope": "One common dictionary for all five URL-Madry models, seeds0-4. Three strict reference passes, TabNet numerical proximity <=0.2pp accepted by researcher, STG weaker exception; not statistical equivalence."
+      "scope": "URL Madry targets, seeds 0-4."
     }
   }
 }

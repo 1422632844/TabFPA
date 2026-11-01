@@ -1,7 +1,3 @@
--r tabularbench/requirements.txt
-
-# The vendored TabularBench dataset factory falls back to downloading datasets
-# and target models from the Hugging Face hub when they are not present locally
-# (tabularbench/utils/huggingface.py); its pinned requirements predate that
-# module, so declare the dependency here.
-huggingface_hub
+# Install the external TabularBench environment first (see README.md).
+# Its exported requirements omit this runtime dependency.
+huggingface_hub>=0.26,<1.0

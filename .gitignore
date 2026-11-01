@@ -9,8 +9,27 @@ tmp/
 .cache/
 
 # user-supplied benchmark assets (see README: datasets and target models)
-tabularbench/datasets/
-tabularbench/target_model/
+tabularbench/
+datasets/
+target_model/
 
 # hf cache if populated by local runs
 cache/
+
+# Never commit datasets, pretrained weights or generated experiment tables.
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.pickle
+*.joblib
+*.model/

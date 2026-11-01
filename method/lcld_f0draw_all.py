@@ -1,11 +1,8 @@
-"""Phase-2B step 1 (2026-09-30): build official-effect f0draw pools for ALL
-five LCLD models (the tabnet one already exists from lcld_officialdraw_tabnet).
+"""Build official-draw LCLD pools for default and Madry targets.
 
-Same semantics as lcld_officialdraw_tabnet.py: official effective path with
-filter_correct=False (class filter -> f32 relations <=1e-9 -> stratified
-train_test_split(test_size=1000, random_state=42)), then classify the draw
-with the model and save the clean-correct subset (_f0draw_cc) plus the full
-draw (_f0draw_full). Deterministic; refuses to overwrite existing files."""
+Apply class filtering and float32 relations <=1e-9, then a stratified
+1000-row draw (random_state=42). Save the draw and each model's clean-correct
+subset. Deterministic; refuses to overwrite existing files."""
 import os, sys, json, hashlib
 from pathlib import Path
 import numpy as np
@@ -17,16 +14,36 @@ for _n in ('Sequence', 'Set', 'Mapping', 'MutableMapping', 'Iterable', 'Callable
         setattr(collections, _n, getattr(collections.abc, _n))
 
 ROOT = Path(__file__).resolve().parents[1]
-TB = Path(os.environ.get("TABULARBENCH_ROOT", ROOT / "tabularbench"))
-sys.path[:0] = [str(ROOT), str(TB), str(ROOT / "method")]
-os.environ.setdefault("TABULARBENCH_ROOT", str(TB))
-os.environ.setdefault("TABULARBENCH_DATASET_DIR", str(TB / "datasets"))
-os.environ.setdefault("TABULARBENCH_TARGET_MODEL_DIR", str(TB / "target_model"))
-from lcld_officialdraw_tabnet import get_x_attack_np_official  # noqa: E402
-from tabularbench.benchmark.model_utils import load_model_and_weights  # noqa: E402
-from tabularbench.datasets.dataset_factory import get_dataset  # noqa: E402
+sys.path[:0] = [str(ROOT), str(ROOT / "method")]
+from benchmark_adapter import TB_ROOT
+from tabularbench.constraints.constraints_backend_executor import ConstraintsExecutor
+from tabularbench.constraints.pytorch_backend import PytorchBackend
+from tabularbench.constraints.relation_constraint import AndConstraint
+from benchmark_adapter import load_model_and_weights  # noqa: E402
+from benchmark_adapter import get_dataset  # noqa: E402
 from tabularbench.models.tab_scaler import TabScaler  # noqa: E402
 from tabularbench.utils.datatypes import to_torch_number  # noqa: E402
+
+def get_x_attack_np_official(x, y, cons, filter_class, subset):
+    """Official subset_utils.get_x_attack with filter_correct=False:
+    class filter -> f32 relations (<=1e-9) -> stratified split rs=42."""
+    x = np.asarray(x, dtype=np.float64)
+    y = np.asarray(y)
+    m = y == filter_class
+    x, y = x[m], y[m]
+    executor = ConstraintsExecutor(AndConstraint(cons.relation_constraints),
+                                   PytorchBackend(),
+                                   feature_names=cons.feature_names)
+    val = executor.execute(torch.Tensor(x.astype(np.float32)))
+    ok = np.asarray(val <= 1e-9).astype(bool)
+    if ok.mean() < 1:
+        x, y = x[ok], y[ok]
+    if subset > 0 and subset < len(y):
+        from sklearn.model_selection import train_test_split
+        _, x, _, y = train_test_split(x, y, test_size=subset,
+                                      stratify=y, random_state=42)
+    return x, y
+
 
 DS, N = "lcld_v2_iid", 1000
 # Default models, then the Madry models used by the adversarially-trained

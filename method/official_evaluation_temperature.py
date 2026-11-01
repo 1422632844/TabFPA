@@ -8,12 +8,12 @@ import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
-os.environ.setdefault('TABULARBENCH_ROOT', str(ROOT / 'tabularbench'))
-os.environ.setdefault('TABULARBENCH_DATASET_DIR', str(ROOT / 'tabularbench/datasets'))
-os.environ.setdefault('TABULARBENCH_TARGET_MODEL_DIR', str(ROOT / 'tabularbench/target_model'))
-sys.path[:0] = [str(ROOT / 'method'), str(ROOT / 'tabularbench'), str(ROOT)]
-from scripts import feasible_gumbel_ablation as fga
+sys.path[:0] = [str(ROOT / 'method'), str(ROOT)]
+import runtime
 from tabularbench.constraints.constraints_checker import ConstraintChecker
+from benchmark_adapter import get_local_model_path
+from tabularbench.models.aliases import ALIASES as ARCH_ALIASES
+from tabularbench.dataloaders.aliases import ALIASES as TRAINING_ALIASES
 import widen_kernel_temperature_params as kernel
 from official_defaults import resolve
 
@@ -44,7 +44,7 @@ class Evaluation:
         self.dataset, self.name, self.out = dataset, name, Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         event(event='loading_model', dataset=dataset, model=name)
-        ds, self.meta, self.scaler, self.model, self.cons, self.adapter, self.judge = fga.old.components(dataset, name)
+        ds, self.meta, self.scaler, self.model, self.cons, self.adapter, self.judge = runtime.components(dataset, name)
         frame, labels = ds.get_x_y()
         all_x, labels = frame.to_numpy(), np.asarray(labels)
         indices = np.asarray(ds.get_splits()['test'])
@@ -62,11 +62,14 @@ class Evaluation:
         self.sources = {}
         for module in list(sys.modules.values()):
             p = getattr(module, '__file__', None)
-            if p and str(ROOT) in str(p) and str(p).endswith('.py') and '/runs/' not in str(p):
+            if p and (str(ROOT) in str(p) or getattr(module, '__name__', '').startswith('tabularbench')) and str(p).endswith('.py') and '/runs/' not in str(p):
                 self.sources[str(Path(p).resolve())] = sha(p)
         self.sources[str(ROOT/'method/official_defaults.json')] = sha(ROOT/'method/official_defaults.json')
         arch, training = name.split('_', 1)
-        weights = ROOT/f'tabularbench/target_model/{dataset}/{arch}_{dataset}_{training}.model'
+        weight_path = get_local_model_path(dataset, ARCH_ALIASES.get(arch, arch), TRAINING_ALIASES.get(training, training))
+        if not weight_path:
+            raise FileNotFoundError('Provide local pretrained checkpoints via TABULARBENCH_TARGET_MODEL_DIR')
+        weights = Path(weight_path)
         for p in weights.iterdir():
             if p.is_file(): self.sources[str(p)] = sha(p)
         pool = dict(D=self.D, N=self.N, indices_sha256=array_sha(self.indices), clean_sha256=array_sha(self.clean))

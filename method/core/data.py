@@ -1,6 +1,4 @@
-"""Shared environment setup, dataset/model loading, and official subset
-selection (replicates TabularBench's run_smoke_test.py exactly, including
-the positional-arg quirk in get_x_attack)."""
+"""TabFPA equality repair, auditing and external benchmark component loading."""
 from __future__ import annotations
 
 import os
@@ -9,20 +7,7 @@ import sys
 import numpy as np
 import torch
 
-from pathlib import Path
-# LOCAL WRAPPER / AUDIT: relocate assets without changing model/attack math.
-TB_ROOT = os.environ.get("TABULARBENCH_ROOT", str(Path(__file__).resolve().parents[2] / "tabularbench"))
-os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-os.environ.setdefault("HF_HOME", f"{TB_ROOT}/.cache/huggingface")
-os.environ.setdefault("TABULARBENCH_TARGET_MODEL_DIR", f"{TB_ROOT}/target_model")
-os.environ.setdefault("TABULARBENCH_DATASET_DIR", f"{TB_ROOT}/datasets")
-if TB_ROOT not in sys.path:
-    sys.path.insert(0, TB_ROOT)
-
-import scipy.integrate as _si  # noqa: E402
-
-if not hasattr(_si, "trapz"):
-    _si.trapz = np.trapz  # lifelines <-> new scipy compat
+from benchmark_adapter import TB_ROOT
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -119,8 +104,8 @@ def trap_rows_f64(x64, constraints_o):
 def setup_components(dataset_name, model_name, device):
     """(ds, x_test, y_test, scaler, model_eval, constraints) — identical to
     tasks/run_smoke_test.py:setup_components."""
-    from tabularbench.benchmark.model_utils import load_model_and_weights
-    from tabularbench.datasets.dataset_factory import get_dataset
+    from benchmark_adapter import load_model_and_weights
+    from benchmark_adapter import get_dataset
     from tabularbench.models.tab_scaler import TabScaler
     from tabularbench.utils.datatypes import to_torch_number
 
@@ -140,32 +125,3 @@ def setup_components(dataset_name, model_name, device):
     )
     constraints_o = ds.get_constraints()
     return ds, x_test, y_test, scaler, model_eval, constraints_o
-
-
-def select_subset(x_test, y_test, constraints_o, model_eval, n_input,
-                  critical=False):
-    """Local class/correctness filters via the installed benchmark helper.
-    False: correct class 0; True: correct class 1; "raw": class 1 without
-    correctness filtering. The helper additionally filters relations in
-    f32 and samples with random_state=42; it does not take the first n rows.
-    """
-    from tabularbench.benchmark.subset_utils import get_x_attack
-
-    if critical == "raw":
-        x_att, y_att = get_x_attack(
-            x_test, y_test, constraints_o, model_eval, False, 1, n_input)
-        return np.asarray(x_att), np.asarray(y_att)
-    if critical:
-        x_att, y_att = get_x_attack(
-            x_test, y_test, constraints_o, model_eval, True, 1, n_input)
-        return np.asarray(x_att), np.asarray(y_att)
-    x_att, y_att = get_x_attack(
-        x_test,
-        y_test,
-        constraints_o,
-        model_eval,
-        1,       # -> filter_correct (truthy)
-        False,   # -> filter_class (False is not None -> keeps y == 0)
-        n_input,
-    )
-    return np.asarray(x_att), np.asarray(y_att)

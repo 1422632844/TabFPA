@@ -1,25 +1,20 @@
-"""Phase-2A (2026-09-30): CTU dlr03 full run -- L2 w_reinit, d_lr .06->.03.
+"""TabFPA full-pool CTU default evaluation with continuous learning rate 0.03.
 
-Identical to full_wreinit_run.py (pools, batching, per-batch seeding, sqlite
-resume) except: (a) CTU only, one model per invocation; (b) kernel call passes
-d_lr=.03 (the per-cell tuning validated on tabnet: 391/391 x5 seeds).
-Output: runs/ctu_dlr03_full/<model>/. Official pools/protocol unchanged."""
+Uses the fixed 200-step schedule, batches of 128, per-batch seeds and
+resumable SQLite outputs under runs/ctu_dlr03_full/<model>/."""
 import os, sys, io, gc, json, time, sqlite3, fcntl, argparse
 from pathlib import Path
 import numpy as np
 import torch
 ROOT = Path(__file__).resolve().parent
-os.environ.setdefault("TABULARBENCH_ROOT", str(ROOT / "tabularbench"))
-os.environ.setdefault("TABULARBENCH_DATASET_DIR", str(ROOT / "tabularbench/datasets"))
-os.environ.setdefault("TABULARBENCH_TARGET_MODEL_DIR", str(ROOT / "tabularbench/target_model"))
-sys.path[:0] = [str(ROOT / "method"), str(ROOT / "tabularbench"), str(ROOT)]
-import run_experiments as common
+sys.path[:0] = [str(ROOT / "method"), str(ROOT)]
+import experiment_common as common
 import widen_kernel_ballmap_dir as widen_kernel  # current official kernel superset; d_lr exposed, loop identical at defaults
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--model", required=True)
+    p.add_argument("--model", required=True, choices=[f"{arch}_default" for arch in ("tabnet", "tabtransformer", "torchrln", "vime", "stg")])
     p.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2, 3, 4])
     p.add_argument("--batch", type=int, default=128)
     a = p.parse_args()
@@ -32,7 +27,7 @@ def main():
                   optimization_batch=a.batch, query_cap=256, eps=.5,
                   continuous_lr=.06, d_lr=.03, logits_lr=.48, init_kappa=40,
                   reinit_round=100, reinit_kappa=0,
-                  note="d_lr .06->.03 per-cell tuning (PARAM_TUNING_TWO_NEGCELLS_20260928)",
+                  note="frozen CTU default continuous learning rate",
                   pool="same as runs/full: legal class1 test; per-model clean correct; original order")
     (out / "manifest.json").write_text(json.dumps(config, indent=2))
     db = sqlite3.connect(out / "state.sqlite3")

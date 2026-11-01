@@ -1,16 +1,9 @@
-"""WiDS mapping-constrained attack, w_reinit edition (default main method).
+"""TabFPA WiDS mapping-constrained evaluation.
 
-Same machinery as wids_mapping_extension.run_mapping (DiagGrid fiber head +
-WidsMappingMoves/Completion), upgraded to the universal schedule:
-kappa40 init + logits lr 0.48 + in-place FULL reset at round 100 for the
-grid head and move logits (kappa0), d->0, current->clean, Adam rebuild.
-Single 200-round run, 256-forward cap, no supplementary search.
-
-Full-pool official protocol: pool = legal class-1 test rows (mapping judge,
-clean data has 0 violations so the pool equals the native one), per-model
-clean-correct, original order; batch 128; per-batch seed = seed*1000003+start;
-RA = (N-S)/D. eps = 0.5 (campaign protocol; the 2026-09-08 experiment used 0.6).
-"""
+Combines the diagnosis grid with integer moves and conditional completion.
+Uses 200 steps, a 256-query cap and reinitialization at round 100. The
+released shell entry uses L2 radius 0.6; the eligible pool contains legal
+class-1 test rows, filtered by per-model clean correctness."""
 from __future__ import annotations
 import argparse, copy, json, os, sys, time
 from pathlib import Path
@@ -18,20 +11,16 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-os.environ.setdefault("TABULARBENCH_ROOT", str(_REPO_ROOT / "tabularbench"))
-os.environ.setdefault("TABULARBENCH_DATASET_DIR", str(_REPO_ROOT / "tabularbench/datasets"))
-os.environ.setdefault("TABULARBENCH_TARGET_MODEL_DIR", str(_REPO_ROOT / "tabularbench/target_model"))
-if str(_REPO_ROOT / "tabularbench") not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT / "tabularbench"))
+from benchmark_adapter import TB_ROOT
 from core.data import setup_components
 from core.feasible_integer_moves import JointIntegerMoves
 from core.wids_completion import WidsCompletion
 from core.wids_mapping_constraint import DIAG, SYSTEM, extended_relation_constraints
 from core.judge import BatchJudge
 from models import load_victim
-from scripts.feasible_gumbel_ablation import AttackLogits
-from scripts.wids_gumbel_ablation import DEVICE, Meter
-from tabdatasets.wids import ORDER_PAIRS
+from runtime import AttackLogits
+from runtime import DEVICE, Meter
+from core.domain_constants import ORDER_PAIRS
 from tabularbench.constraints.constraints_checker import ConstraintChecker
 
 from wids_mapping_extension import DiagGrid, WidsMappingMoves, WidsMappingCompletion
@@ -228,6 +217,9 @@ def main():
     ap.add_argument("--smoke", action="store_true", help="single seed, first 128 rows only")
     ap.add_argument("--out", default=None, help="output root (default runs/wids_mapping_full_wreinit)")
     a = ap.parse_args()
+    allowed = [f"{arch}_default" for arch in ("tabnet", "tabtransformer", "torchrln", "vime", "stg")]
+    if any(model not in allowed for model in a.models):
+        ap.error("The released WiDS-mapping scenario uses default targets only.")
     seeds = [0] if a.smoke else a.seeds
     for m in a.models:
         if a.smoke:

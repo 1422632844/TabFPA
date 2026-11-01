@@ -7,7 +7,7 @@ box/pair projections. The torch bridge uses BPDA, NOT implicit differentiation.
 """
 import numpy as np
 import torch
-from tabdatasets.wids import ORDER_PAIRS
+from core.domain_constants import ORDER_PAIRS
 
 
 class WidsCompletion:

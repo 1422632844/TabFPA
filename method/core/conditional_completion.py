@@ -8,7 +8,7 @@ No completion may alter a chosen integer or an immutable field.
 import numpy as np
 from scipy.optimize import minimize
 from core.wids_completion import WidsCompletion
-from tabdatasets.ctu_13_neris import PORTS
+from core.domain_constants import PORTS
 
 
 class ConditionalCompletion:

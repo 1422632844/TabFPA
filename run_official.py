@@ -14,12 +14,17 @@ from official_defaults import resolve,profile_id
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--dataset',choices=['wids','url'],required=True)
-    p.add_argument('--models',nargs='+',default=['tabtransformer_default','torchrln_default','vime_default','stg_default','tabnet_default'])
+    p.add_argument('--models',nargs='+')
     p.add_argument('--seeds',nargs='+',type=int,default=[0,1,2,3,4])
     p.add_argument('--out',type=Path)
     p.add_argument('--parameters',type=Path,help='Shared parameter JSON, or a frozen record containing parameters')
     p.add_argument('--show-defaults',action='store_true')
     a=p.parse_args()
+    regime='madry' if a.dataset=='url' else 'default'
+    allowed=[f'{arch}_{regime}' for arch in ('tabtransformer','torchrln','vime','stg','tabnet')]
+    a.models=a.models or allowed
+    if any(model not in allowed for model in a.models):
+        p.error(f'This entry requires {a.dataset} {regime} targets; see README for other schedules.')
     profiles={m:dict(profile=profile_id(a.dataset,m),parameters=resolve(a.dataset,m),attack_query_cap=200,initial_clean_queries=1) for m in a.models}
     if a.parameters:
         data=json.loads(a.parameters.read_text())
@@ -31,19 +36,19 @@ def main():
             profile['profile']='custom_'+digest
     if a.show_defaults:
         print(json.dumps(profiles,indent=2)); return
-    from official_evaluation_query200 import Evaluation,torch,save,fga
+    from official_evaluation_query200 import Evaluation,torch,save,runtime
     torch.set_num_threads(2);torch.set_num_interop_threads(1)
     if a.dataset=='url':
         # LOCAL WRAPPER / AUDIT: reuse the existing URL official loader.
         # Its VictimAdapter consumes raw features; the generic TabNet probe
         # compares logits with probabilities and can choose double scaling.
-        import run_experiments as original
+        import experiment_common as original
         def url_components(dataset,name):
             ds=original.get_dataset(dataset)
             probe,indices,meta,scaler,cons=original.dataset_data(dataset)
             cpu,adapter,judge=original.victims(dataset,name,meta,scaler,cons,probe)
             return ds,meta,scaler,cpu,cons,adapter,judge
-        fga.old.components=url_components
+        runtime.components=url_components
     for m in a.models:
         root=a.out or ROOT/'runs'/('official_'+a.dataset+'_'+profiles[m]['profile']+'_q200')
         evaluation_class=Evaluation
