@@ -93,7 +93,9 @@ def main():
                 pool="official test; strictly valid class1; per-target clean correct; original row order",
                 method="joint_integer_minimum_continuous_anchor",
                 source_files={str(q.relative_to(ROOT)):digest(q) for q in [Path(__file__),*sorted((ROOT/"method").rglob("*.py")),*sorted((ROOT/"tabularbench/tabularbench").rglob("*.py"))]},
-                assets_manifest_sha256=digest(ROOT/"asset_manifest.json"),
+                # Optional deployment-tree asset inventory; absent in a clean
+                # checkout (datasets/weights are user-supplied, see README).
+                assets_manifest_sha256=digest(ROOT/"asset_manifest.json") if (ROOT/"asset_manifest.json").exists() else None,
                 torch_version=torch.__version__,numpy_version=np.__version__,
                 device=torch.cuda.get_device_name(0))
     path=out/"manifest.json"

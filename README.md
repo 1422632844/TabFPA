@@ -28,7 +28,8 @@ mapping relation).
 | `method/official_defaults.{py,json}` | Frozen per-scenario parameter profiles |
 | `method/lcld_*` | LCLD frozen 996 configuration and official-draw pool builder |
 | `method/wids_mapping_*.py` | WiDS mapping-constrained scenario |
-| `full_wreinit_run.py`, `ctu_dlr03_run.py`, `run_official.py`, `run_experiments.py` | Experiment entry points (see below) |
+| `full_wreinit_run.py`, `ctu_dlr03_run.py`, `run_official.py` | Experiment entry points (see below) |
+| `run_experiments.py` | Shared dataset/victim loaders imported by the entries above; also a legacy learning-rate sweep / audit entry (`--mode audit/smoke/full`), not one of the paper-table experiments |
 | `run_*.sh` | Launchers (relative paths only; `PYTHON` and `GPU` overridable) |
 | `tabularbench/` | Vendored [TabularBench](https://github.com/serval-uni-lu/tabularbench) package (model wrappers, constraint checkers, dataset factory) |
 
@@ -119,13 +120,16 @@ bash run_wids_mapping.sh        # all five default models, seeds 0–4
 
 ### Outputs
 
+All `RA`/`ASR` values written by the entries are **percentages (0–100)**.
+
 - `run_full_wreinit.sh` / `run_ctu_dlr03.sh`: `runs/<dataset>_full_wreinit/<model>/`
   and `runs/ctu_dlr03_full/<model>/` — `manifest.json`, `status.json`, resumable
   `state.sqlite3` (per-seed scene rows `S/N/D/RA`; adversarial batches as BLOBs).
 - `run_official.sh`: `runs/official_<dataset>_<profile>_q200/<model>/` — per-seed
   results plus `complete.json` with the frozen parameters.
-- `run_lcld_996.sh`: pools under `reference/caa_pools/`, results under
-  `runs/lcld996_f0draw_20260930/` (JSON + per-seed NPZ).
+- `run_lcld_996.sh`: pools under `reference/caa_pools/`; default-target results
+  under `runs/lcld996_f0draw_20260930/`, Madry-target results under
+  `runs/lcld996_f0draw_madry/` (JSON + per-seed NPZ).
 - `run_wids_mapping.sh`: `runs/wids_mapping_full_wreinit_eps06/<model>/`
   (`results.json` rows with `S`, `N`, `D`, `RA`).
 
