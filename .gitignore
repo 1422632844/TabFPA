@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# experiment outputs and generated pools
+runs/
+reference/
+tmp/
+.cache/
+
+# user-supplied benchmark assets (see README: datasets and target models)
+tabularbench/datasets/
+tabularbench/target_model/
+
+# hf cache if populated by local runs
+cache/

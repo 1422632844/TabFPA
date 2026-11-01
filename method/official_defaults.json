@@ -1,0 +1,52 @@
+{
+  "version": "2026-10-25",
+  "base": {
+    "steps": 200,
+    "logits_lr": 0.48,
+    "kappa": 40.0,
+    "reinit_round": 100,
+    "reinit_kappa": 0.0,
+    "state_policy": "released",
+    "cont_param": "plain",
+    "d_lr": 0.06,
+    "hinge_w": 4.0,
+    "hinge_th": 0.45,
+    "rel_w": 0.0
+  },
+  "profiles": {
+    "wids/default": {
+      "id": "wids_d09_h32_lr36",
+      "parameters": {
+        "d_lr": 0.09,
+        "hinge_w": 32.0,
+        "logits_lr": 0.36
+      },
+      "evidence": "runs/wids_fixed_multiseed_20261021/summary.json",
+      "scope": "Native WiDS, five default checkpoints, seeds 0-4. Mapping constraints and Madry checkpoints are separate scenarios."
+    },
+    "url/madry": {
+      "id": "url_madry_k30_lr70_tau05",
+      "parameters": {
+        "steps": 200,
+        "logits_lr": 0.7,
+        "kappa": 30.0,
+        "reinit_round": 100,
+        "reinit_kappa": 0.0,
+        "state_policy": "released",
+        "cont_param": "plain",
+        "d_lr": 0.06,
+        "hinge_w": 4.0,
+        "hinge_th": 0.45,
+        "rel_w": 0.0,
+        "adam_beta1": 0.9,
+        "adam_beta2": 0.999,
+        "adam_eps": 1e-12,
+        "keep_logit": 2.0,
+        "tau_start": 1.0,
+        "tau_end": 0.5
+      },
+      "evidence": "runs/url_madry_temperature_params_20261023/rbalance00_validation_summary.json",
+      "scope": "One common dictionary for all five URL-Madry models, seeds0-4. Three strict reference passes, TabNet numerical proximity <=0.2pp accepted by researcher, STG weaker exception; not statistical equivalence."
+    }
+  }
+}
